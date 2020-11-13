@@ -58,7 +58,6 @@ public class ProcessorImpl extends UnicastRemoteObject implements Processor, Run
         else {
             System.out.println(this.processorId + " add to buffer " + message);
             messageBuffer.add(message);
-            goThoughBuffer();
         }
     }
 
