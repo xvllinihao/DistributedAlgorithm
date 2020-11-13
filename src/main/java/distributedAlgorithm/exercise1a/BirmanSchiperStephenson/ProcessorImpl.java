@@ -1,109 +1,123 @@
 package distributedAlgorithm.exercise1a.BirmanSchiperStephenson;
 
-import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
-import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
-public class ProcessorImpl extends UnicastRemoteObject implements Processor {
+public class ProcessorImpl extends UnicastRemoteObject implements Processor, Runnable {
 
-    Long processorId;
-    Registry registry;
-    ArrayList<Processor> processors = new ArrayList<>();
-    Vector vector;
-    Queue<Message> messageQueue;
+    private final int processorId;
+    private Registry registry;
+    private final ArrayList<Processor> otherProcessors = new ArrayList<>();
+    private Vector vector;
+    private final ConcurrentLinkedDeque<Message> messageBuffer = new ConcurrentLinkedDeque<>();
 
-    public static void main(String[] args) throws RemoteException, NotBoundException {
-        Processor processor = new ProcessorImpl();
-        processor.getRegistry().rebind("Processor" + processor.getProcessorId(), processor);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Registry registry = processor.getRegistry();
-
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
-
-    public ProcessorImpl() throws RemoteException, NotBoundException {
-        registry = LocateRegistry.getRegistry(1099);
-        String[] processorNames = registry.list();
-        ArrayList<Processor> processors = new ArrayList<>();
-        for(String name : processorNames) {
-            processors.add((Processor) registry.lookup(name));
-        }
-        processorId = generateProcessorId(processors);
-    }
-
-    @Override
-    public void ping() throws RemoteException {
-        for(Processor p : processors) {
-            if(!p.equals(this)) {
-                p.notifyChanges();
-            }
-        }
-    }
-
-    @Override
-    public void notifyChanges() throws RemoteException {
+    public static void main(String[] args) {
 
     }
 
-    @Override
-    public void notifyAddNewProcessor() throws RemoteException {
-
-    }
-
-    public long generateProcessorId(ArrayList<Processor> existProcessors) throws RemoteException {
-        ArrayList<Long> existProcessorIds = new ArrayList<>();
-        for(Processor p : processors) {
-            existProcessorIds.add(p.getProcessorId());
-        }
-        long processorId;
-        do {
-            processorId = new Random().nextLong();
-        }
-        while (existProcessorIds.contains(processorId));
-        return processorId;
-    }
-
-    public Long getProcessorId() throws RemoteException {
-        return processorId;
-    }
-
-    public void setProcessorId(Long processorId) {
+    public ProcessorImpl(int processorNumber, int processorId) throws RemoteException {
+        this.registry = LocateRegistry.getRegistry(1099);
+        this.vector = new Vector(processorNumber);
         this.processorId = processorId;
     }
 
-    public Registry getRegistry() {
-        return registry;
+    @Override
+    public void send() throws RemoteException, InterruptedException {
+        vector.addOne(this.processorId);
+        Message message = new Message(
+                processorId,
+                System.nanoTime() / 1000 + "",
+                this.vector);
+        for(Processor p : otherProcessors) {
+            if(!p.equals(this)) {
+                p.receive(message);
+                Thread.sleep(new Random().nextInt(3000));
+            }
+        }
     }
 
-    public void setRegistry(Registry registry) {
-        this.registry = registry;
+    @Override
+    public void receive(Message message) throws RemoteException {
+        int[] tmpV = this.vector.v.clone();
+        // V + ej
+        tmpV[message.processorId] += 1;
+        Vector tmpVector = new Vector(tmpV);
+        // Vm
+        Vector Vm = message.vector;
+        // V + ej >= Vm
+        if(tmpVector.bigOrEqualThan(Vm)) {
+            confirmReceive(message);
+            this.vector = tmpVector;
+            goThoughBuffer();
+        }
+        else {
+            System.out.println(this.processorId + " add to buffer " + message);
+            messageBuffer.add(message);
+            goThoughBuffer();
+        }
     }
 
-    public ArrayList<Processor> getProcessors() {
-        return processors;
+    public void goThoughBuffer() {
+        boolean flag;
+        do {
+            flag = false;
+            for(Message message : messageBuffer) {
+                int[] tmpV = this.vector.v.clone();
+                // V + ej
+                tmpV[message.processorId] += 1;
+                Vector tmpVector = new Vector(tmpV);
+                // Vm
+                Vector Vm = message.vector;
+                // V + ej >= Vm
+                if(tmpVector.bigOrEqualThan(Vm)) {
+                    confirmReceive(message);
+                    System.out.println(this.processorId + " out of buffer");
+                    this.vector = tmpVector;
+                    messageBuffer.remove(message);
+                    flag = true;
+                }
+            }
+        }
+        while (flag);
     }
 
-    public void setProcessors(ArrayList<Processor> processors) {
-        this.processors = processors;
+    public void confirmReceive(Message message) {
+        System.out.println(this.processorId + " " + message.toString());
     }
 
     @Override
     public boolean equals(Object obj) {
         if(obj instanceof ProcessorImpl) {
-            return ((ProcessorImpl) obj).processorId.equals(this.processorId);
+            return ((ProcessorImpl) obj).processorId == (this.processorId);
         }
         return false;
+    }
+
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(new Random().nextInt(1000)); // Wait other processors ready
+            registry = LocateRegistry.getRegistry(1099);
+            String[] processorNames = registry.list();
+            for (String name : processorNames) {
+                if(!name.equals(this.processorId + "")) {
+                    Processor processor = (Processor) registry.lookup(name);
+                    otherProcessors.add(processor);
+                }
+            }
+            while (true) {
+                send();
+//                Thread.sleep(1000);
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error");
+        }
     }
 }
