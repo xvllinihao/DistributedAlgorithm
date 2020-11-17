@@ -9,7 +9,7 @@ public class RegistryService {
     public static void main(String[] args) {
         int numberOfProcessor = 3;
         try {
-            Registry registry = LocateRegistry.createRegistry(1099);
+            Registry registry = LocateRegistry.createRegistry(10990);
             for (int i = 0; i < numberOfProcessor; i++) {
                 String processorName = i + "";
                 Processor processor = new ProcessorImpl(numberOfProcessor, i);

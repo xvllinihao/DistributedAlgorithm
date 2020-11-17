@@ -21,7 +21,7 @@ public class ProcessorImpl extends UnicastRemoteObject implements Processor, Run
     }
 
     public ProcessorImpl(int processorNumber, int processorId) throws RemoteException {
-        this.registry = LocateRegistry.getRegistry(1099);
+        this.registry = LocateRegistry.getRegistry(10990);
         this.vector = new Vector(processorNumber);
         this.processorId = processorId;
     }
@@ -101,7 +101,7 @@ public class ProcessorImpl extends UnicastRemoteObject implements Processor, Run
     public void run() {
         try {
             Thread.sleep(new Random().nextInt(1000)); // Wait other processors ready
-            registry = LocateRegistry.getRegistry(1099);
+            registry = LocateRegistry.getRegistry(10990);
             String[] processorNames = registry.list();
             for (String name : processorNames) {
                 if(!name.equals(this.processorId + "")) {
