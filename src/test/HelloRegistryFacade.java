@@ -1,4 +1,4 @@
-package distributedAlgorithm.test;
+package test;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;

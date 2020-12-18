@@ -132,7 +132,7 @@ public class Processor extends UnicastRemoteObject implements ProcessorRMI, Runn
                 peterson();
                 updateNeighbourInfo();
                 if (upstreamId == id) {
-                    System.out.println(id+" is elected");
+                    System.out.println(tid+" is elected");
                     System.exit(0);
                 }
             }

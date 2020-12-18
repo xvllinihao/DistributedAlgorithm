@@ -1,4 +1,4 @@
-package distributedAlgorithm.test;
+package test;
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
